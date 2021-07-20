@@ -1,0 +1,164 @@
+---
+title: "R VISUALIZATION CASE STUDY - shubhamjainxyz@gmail.com"
+author: "Shubham Jain"
+output: html_document
+---
+### IMPORTING DATASET
+
+```{r}
+sales_data <- read.csv("Class 7 Data Science Using R/CaseStudy_R_Visualizations/SalesData.csv")
+head(sales_data, 2)
+```
+
+### IMPORTING PACKAGES 
+
+```{r}
+require(dplyr)
+require(ggplot2)
+require(plotly)
+require(reshape2)
+require(gridExtra)
+```
+
+### Q1. COMPARE SALES BY REGION FOR 2015 AND 2016
+
+```{r}
+sales_15_16 <- sales_data %>% dplyr::group_by(Region) %>% 
+               summarise(TotalSales2015 = sum(Sales2015), TotalSales2016 = sum(Sales2016))
+sales_15_16 <- reshape2::melt(sales_15_16, "Region")
+sales_15_16 <- dplyr::rename(sales_15_16, "Year" = "variable", "Sales" = "value")
+sales_15_16_plot <- ggplot2::ggplot(data = sales_15_16) + 
+                             aes(x = Region, y = Sales, fill = Year ) +
+                             geom_bar(stat = "identity", position = "dodge")
+
+sales_15_16_plot <- plotly::ggplotly(sales_15_16_plot)
+sales_15_16_plot
+```
+
+### Q2. CONTRIBUTING FACTOR TO SALES IN EACH REGION FOR 2016.
+
+```{r}
+pie_data <- sales_data %>% dplyr::group_by(Region) %>%
+                           summarise(Sales = sum(Sales2016))
+pie_data$percentage <- as.integer((pie_data$Sales/sum(pie_data$Sales))*100)
+pie_chart <- pie(pie_data$Sales, labels = paste(pie_data$Region, "  ",
+                                               (pie_data$percentage), "%"))
+pie_chart
+```
+
+### Q3. TOTAL SALES OF 2015 AND 2016 W.R.T REGIONS AND TIERS.
+
+```{r}
+q3_data <- sales_data %>% dplyr::group_by(Region, Tier) %>% 
+                          summarise(TotalSales2015 = sum(Sales2015), TotalSales2016 = sum(Sales2016)) 
+q3_data <- reshape2::melt(q3_data, c("Region", "Tier"))
+q3_data <- dplyr::rename(q3_data, "Year" = "variable", "Sales" = "value")
+q3_plot <- ggplot2::ggplot(data = q3_data) + 
+                    aes(x = Tier, y = Sales, fill = Year) + 
+                    geom_bar(stat = "identity", position = "dodge") + 
+                    facet_grid(.~Region)
+q3_plot <- plotly::ggplotly(q3_plot)
+q3_plot
+```
+
+### Q4. DECLINE(Sales) IN STATE IN 2016 VS. 2015 IN EAST REGION.
+
+```{r}
+q4_data <- sales_data[sales_data$Region == "East", ] %>%
+           dplyr::group_by(State) %>% 
+           summarise(TotalSales2015 = sum(Sales2015), TotalSales2016 = sum(Sales2016))
+q4_data <- reshape2::melt(q4_data, "State")
+q4_data <- dplyr::rename(q4_data, "Year" = "variable", "Sales" = "value")
+q4_plot <- ggplot2::ggplot(data = q4_data) + 
+           aes(x = State, y = Sales, fill = Year) + 
+           geom_bar(stat = "identity", position = "dodge")
+q4_plot <- plotly::ggplotly(q4_plot)
+q4_plot
+
+# STATE NY REGISTERED A DECLINE IN SALES IN 2016 COMPARED TO 2015
+```
+
+### Q5. IN HIGH TIER WHICH DIVISION SAW A DECLINE IN UNIT SALES IN 2016 VS. 2015.
+
+```{r}
+q5_data <- sales_data[sales_data$Tier == "High", ] %>% 
+           dplyr::group_by(Division) %>%
+           summarise(UnitSales2015 = sum(Units2015), UnitSales2016 = sum(Units2016))
+q5_data <- reshape2::melt(q5_data, "Division")
+q5_data <- dplyr::rename(q5_data, "Year" = "variable", "UnitSales" = "value")
+q5_plot <- ggplot2::ggplot(data = q5_data) + 
+           aes(x = Division, y = UnitSales, fill = Year) + 
+           geom_bar(stat = "identity", position = "dodge") + 
+           theme(axis.text.x = element_text(angle = 90))
+q5_plot <- plotly::ggplotly(q5_plot)
+q5_plot
+
+# NONE OF THE DIVISION SAW A DECLINE IN UNIT SALES IN 2016 COMPARED TO 2015
+```
+
+### Q6. CREATING A NEW COLUMN QTR(QUARTER).
+
+```{r}
+sales_data$Qtr <- ifelse(sales_data$Month == "Jan" | 
+                           sales_data$Month == "Feb" | 
+                            sales_data$Month == "Mar", "Q1", 
+                         ifelse(sales_data$Month == "Apr" | 
+                                  sales_data$Month == "May" | 
+                                   sales_data$Month == "Jun", "Q2",
+                                ifelse(sales_data$Month == "Jul" | 
+                                         sales_data$Month == "Aug" | 
+                                          sales_data$Month == "Sep", "Q3", "Q4")))
+head(sales_data, 2)
+```
+
+### Q7. COMPARE QUARTER WISE SALES IN 2015 VS 2016.
+
+```{r}
+q7_data <- sales_data %>% 
+           dplyr::group_by(Qtr) %>% 
+           summarise(TotalSales2015 = sum(Sales2015), TotalSales2016 = sum(Sales2016))
+q7_data <- reshape2::melt(q7_data, "Qtr")
+q7_data <- dplyr::rename(q7_data, "Year" = "variable", "Sales" = "value")
+
+q7_plot <- ggplot2::ggplot(data = q7_data) + 
+           aes(x = Qtr, y = Sales, fill = Year) + 
+           geom_bar(stat = "identity", position = "dodge")
+q7_plot <- plotly::ggplotly(q7_plot)
+q7_plot
+
+```
+
+### Q8. COMPOSITION OF QUARTER WISE SALES IN 2016 W.R.T ALL TIERS.
+
+```{r}
+par(mfrow = c(2,2))
+par(mar=c(1,1,1,1))
+q8_data_1 <- sales_data[sales_data$Qtr == "Q1", ] %>% 
+             dplyr::group_by(Tier) %>% 
+             summarise(Sales = sum(Sales2016))
+pie(q8_data_1$Sales, labels = q8_data_1$Tier)
+title("Qtr1")
+
+q8_data_2 <- sales_data[sales_data$Qtr == "Q2", ] %>% 
+             dplyr::group_by(Tier) %>% 
+             summarise(Sales = sum(Sales2016))
+pie(q8_data_2$Sales, labels = q8_data_2$Tier)
+title("Qtr2")
+
+q8_data_3 <- sales_data[sales_data$Qtr == "Q3", ] %>% 
+             dplyr::group_by(Tier) %>% 
+             summarise(Sales = sum(Sales2016))
+#pie(q8_data_3$Sales, labels = q8_data_3$Tier)
+#title("Qtr3")
+############################################################################################
+###  CANNOT PLOT PIE CHART FOR QTR3 AS SALES FOR OUT TIER IS COMING OUT TO BE NEGATIVE   ###
+############################################################################################           
+q8_data_4 <- sales_data[sales_data$Qtr == "Q4", ] %>% 
+             dplyr::group_by(Tier) %>% 
+             summarise(Sales = sum(Sales2016))
+pie(q8_data_4$Sales, labels = q8_data_4$Tier)
+title("Qtr4")
+
+par(mfrow = c(1,1))
+```
+

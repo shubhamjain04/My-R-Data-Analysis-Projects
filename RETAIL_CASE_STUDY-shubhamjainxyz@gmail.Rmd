@@ -1,0 +1,283 @@
+```{r}
+################################################################################
+########################### RETAIL CASE STUDY ##################################
+################################################################################
+```
+
+```{r}
+setwd("C:/Users/shubh/Desktop/Data Science Using R")
+
+customer <- read.csv("Class 7 Data Science Using R/R Retail Case Study/Customer.csv")
+head(customer, 2)  
+
+product_cat_info <- read.csv("Class 7 Data Science Using R/R Retail Case Study/prod_cat_info.csv")
+head(product_cat_info, 2)
+
+transactions <- read.csv("Class 7 Data Science Using R/R Retail Case Study/Transactions.csv")
+head(transactions, 2)
+```
+
+```{r}
+require(dplyr)
+require(ggplot2)
+require(plotly)
+require(lubridate)
+```
+
+### Q1(a). MERGING THE DATASETS BY USING BASE R PACKAGE.
+
+```{r}
+customer_final_sub <- merge(x = customer, y = transactions, by.x = "customer_Id", by.y =     
+                            "cust_id", all.y = TRUE)
+
+customer_final <- merge(x = customer_final_sub, y = product_cat_info, 
+                        by.x = c("prod_cat_code", "prod_subcat_code"),
+                        by.y = c("prod_cat_code", "prod_sub_cat_code"),
+                        all.x = TRUE)
+
+head(customer_final, 2)
+```
+
+### Q1(b). MERGING THE DATASETS BY USING DPLYR PACKAGE.
+
+```{r}
+customer_final_sub2 <- dplyr::right_join(x = customer, y = transactions, by = c("customer_Id" = "cust_id"))
+
+customer_final2 <- dplyr::left_join(x = customer_final_sub, y = product_cat_info,
+                                   by = c("prod_cat_code"= "prod_cat_code", "prod_subcat_code"= "prod_sub_cat_code"))
+
+head(customer_final, 2)
+```
+
+### Q2. CREATING A SUMMARY FOR MERGED DATASETS.
+
+### (a) Getting Column Names Along With Data Types.
+
+```{r}
+sapply(customer_final2, class)
+```
+
+### (b) Top / Bottom 10 Oservations
+
+```{r}
+head(customer_final2, 10)
+tail(customer_final2, 10)
+```
+
+### (c) Summary for continuous variables
+
+```{r}
+dtypes <- sapply(customer_final2, class)
+summary(customer_final2[dtypes == "integer" | dtypes == "numerical"])
+```
+
+### (d) Frequency Table for Categorical Variables
+
+```{r}
+dplyr.summarise.inform = FALSE 
+
+freq_gender <- dplyr::group_by(customer_final2, Gender) 
+dplyr::summarise(freq_gender, Frequency = n())
+
+freq_citycode <- dplyr::group_by(customer_final2, city_code)
+dplyr::summarise(freq_citycode, Frequency = n())
+
+freq_prodcode <- customer_final2 %>% dplyr::group_by(prod_cat_code, prod_subcat_code)
+dplyr::summarise(freq_prodcode, Frequency = n())
+
+freq_prodname <- customer_final2 %>% dplyr::group_by(prod_cat, prod_subcat)
+dplyr::summarise(freq_prodname, Frequency = n())
+
+freq_storetype <- dplyr::group_by(customer_final2, Store_type)
+dplyr::summarise(freq_storetype, Frequency = n())
+
+
+```
+
+### Q3. GENERATE HISTOGRAM FOR ALL CONTINUOUS VARIABLES AND 
+###     FREQUENCY BARS FOR ALL CATEGORICAL VARIABLES
+
+```{r}
+histogram_qty <- ggplot2::ggplot(data = customer_final2) + 
+                 aes(x = Qty) + geom_histogram(bins = 30, fill = "skyblue") + 
+                 xlab("Quantity") + ylab("Frequency")
+plotly::ggplotly(histogram_qty)
+
+histogram_rate <- ggplot2::ggplot(data = customer_final2) + 
+                 aes(x = Rate) + geom_histogram(bins = 30, fill = "skyblue") + 
+                 xlab("Rate") + ylab("Frequency")
+plotly::ggplotly(histogram_rate)
+
+histogram_amount <- ggplot2::ggplot(data = customer_final2) + 
+                 aes(x = total_amt) + geom_histogram(bins = 30, fill = "skyblue") + 
+                 xlab("Total Amount") + ylab("Frequency")
+plotly::ggplotly(histogram_amount)
+
+
+histogram_tax <- ggplot2::ggplot(data = customer_final2) + 
+                 aes(x = Tax) + geom_histogram(bins = 30, fill = "skyblue") + 
+                 xlab("Tax") + ylab("Frequency")
+plotly::ggplotly(histogram_tax)
+```
+
+```{r}
+barchart_gender <- ggplot2::ggplot(data = customer_final2) +
+                   aes(x = Gender) + geom_bar() +
+                   xlab("Gender") + ylab("Frequency") 
+plotly::ggplotly(barchart_gender) 
+
+barchart_citycode <- ggplot2::ggplot(data = customer_final2) +
+                     aes(x = city_code) + geom_bar() +
+                     xlab("City Code") + ylab("Frequency") 
+plotly::ggplotly(barchart_citycode) 
+
+barchart_storetype <- ggplot2::ggplot(data = customer_final2) +
+                      aes(x = Store_type) + geom_bar() +
+                      xlab("Store Type") + ylab("Frequency") 
+plotly::ggplotly(barchart_storetype) 
+
+barchart_product <- ggplot2::ggplot(data = customer_final2) +
+                    aes(x = prod_cat) + geom_bar() +
+                    xlab("Product Category") + ylab("Frequency") 
+plotly::ggplotly(barchart_product) 
+
+barchart_subproduct <- ggplot2::ggplot(data = customer_final2) +
+                    aes(x = prod_subcat) + geom_bar() +
+                    xlab("Product Sub-Category") + ylab("Frequency") 
+plotly::ggplotly(barchart_subproduct) 
+```
+
+### Q4(a). TIME PERIOD OF AVAILABLE TRANSACTION DATA
+
+```{r}
+customer_final2$tran_date <- lubridate::dmy(customer_final2$tran_date)
+time_period_days <- max(customer_final2$tran_date) - min(customer_final2$tran_date)
+time_period_days
+
+time_period_years <- year(max(customer_final2$tran_date)) - year(min(customer_final2$tran_date))
+time_period_years
+```
+
+### Q4(b). COUNT OF TRANSACTIONS WITH NEGATIVE AMOUNT ????
+
+```{r}
+count(customer_final2[customer_final2$total_amt < 0,]) 
+```
+
+### Q5. ANALYZE POPULAR CATEGORIES AMONG FEMALE VS. MALES
+
+```{r}
+female_data <- customer_final2[customer_final2$Gender == "F",]
+male_data <- customer_final2[customer_final2$Gender == "M",]
+
+female_popular_cat <- female_data %>% group_by(prod_cat) %>% summarise(Frequency = n())
+female_popular_cat <- dplyr::arrange(female_popular_cat, desc(Frequency))
+female_popular_cat[c(1:3),]
+
+male_popular_cat <- male_data %>% group_by(prod_cat) %>% summarise(Frequency = n())
+male_popular_cat <- dplyr::arrange(male_popular_cat, desc(Frequency))
+male_popular_cat[c(1:3),]
+```
+
+### Q6. CITY CODE WITH MAXIMUM CUSTOMERS ALONG WITH PERCENTAGE OF CUSTOMERS
+
+```{r}
+max_cust_city <- customer_final2 %>% dplyr::group_by(city_code) %>%                                  
+                 summarise(Count_Of_Cust = n()) %>% arrange(desc(Count_Of_Cust))
+print(max_cust_city[1,])
+max_cust_city_pct <- (max_cust_city[1,2]/sum(max_cust_city$Count_Of_Cust))*100
+print(paste(max_cust_city_pct, "%"))
+```
+
+### Q7(a). STORETYPE SELLING MAXIMUM PRODUCTS BY VALUE
+
+```{r}
+max_sales_value <- customer_final2[customer_final2$total_amt > 0, ] %>%            
+                   dplyr::group_by(Store_type) %>% 
+                   summarise(Total_Sales_Value = sum(total_amt)) %>%
+                   arrange(desc(Total_Sales_Value))
+max_sales_value[1,]
+```
+
+### Q7(b). STORETYPE SELLING MAXIMUM PRODUCTS BY QUANTITY
+
+```{r}
+max_sales_qty <- customer_final2[customer_final2$Qty > 0, ] %>%            
+                   dplyr::group_by(Store_type) %>% 
+                   summarise(Total_Sales_Qty = sum(Qty)) %>%
+                   arrange(desc(Total_Sales_Qty))
+max_sales_qty[1,]
+```
+
+### Q8. TOTAL AMOUNT EARNED FROM ELECTRONICS AND CLOTHING CATEGORIES FROM FLAGSHIP STORES
+
+```{r}
+elec_clth_flg <- customer_final2[customer_final2$Store_type == "Flagship store" & 
+                 (customer_final2$prod_cat == "Electronics" | customer_final2$prod_cat == "Clothing") &
+                  customer_final2$total_amt > 0, ]
+elec_clth_flg_amt <- sum(elec_clth_flg$total_amt)
+print(paste("Amount Earned = ", elec_clth_flg_amt))
+```
+
+### Q9. AMOUNT EARNED FROM MALE CUSTOMERS IN ELECTRONICS CATEGORY
+
+```{r}
+amt_elec_male <- sum(customer_final2[customer_final2$Gender == "M" & 
+                                     customer_final2$prod_cat == "Electronics" &
+                                     customer_final2$total_amt > 0, ]$total_amt)
+print(paste("Amount Earned = ", amt_elec_male))
+```
+
+### Q10. CUSTOMERS WITH 10 UNIQUE TRANSACTIONS
+
+```{r}
+unique_transactions <- customer_final2[customer_final2$total_amt > 0, ] %>%
+                       dplyr::group_by(customer_Id) %>% 
+                       summarise(No_Of_Transactions = n()) %>% 
+                       arrange(desc(No_Of_Transactions))
+unique_transactions_count <- count(unique_transactions[unique_transactions$No_Of_Transactions > 10, ])
+print(paste("No. of customers with more than 10 transactions = ", unique_transactions_count))
+```
+
+### Q11(a). TOTAL AMOUNT SPENT FOR ELECTRONICS & BOOKS CATEGORIES (AGE B/W 25-35)
+
+```{r}
+customer_final2$DOB <- lubridate::dmy(customer_final2$DOB)
+q11_data <- dplyr::group_by(customer_final2, customer_Id, tran_date) %>% arrange(customer_Id, desc(tran_date))
+q11_data <- q11_data[, c(1,2,6)]
+head(q11_data, 5)
+q11_data$age <- as.integer((q11_data$tran_date - q11_data$DOB)/365)
+q11_data <- q11_data %>% dplyr::group_by(customer_Id) %>% summarise(max(age))
+customer_final2 <- dplyr::left_join(customer_final2, q11_data, by = "customer_Id")
+customer_final2 <- dplyr::rename(customer_final2, "age" = "max(age)")
+
+amt_elec_books <- sum(customer_final2[(customer_final2$prod_cat == "Electronics" | 
+                                       customer_final2$prod_cat == "Books") & 
+                                       customer_final2$total_amt > 0 &
+                                      (customer_final2$age >= 25 | customer_final2$age <= 35), ]$total_amt)
+print(paste("Amount earned from people aged b/w 25 and 35 in elec. & books catg. is ", amt_elec_books))
+```
+
+### Q11(b). AMOUNT SPENT B/W 1-1-2014 & 1-3-2014 BY CUST AGED B/W 25 & 35
+
+```{r}
+transaction_date_1114_1314 <- (customer_final2$tran_date >= lubridate::ymd("2014,01,01") & 
+                               customer_final2$tran_date <= lubridate::ymd("2014,03,01"))
+
+amt_spt_1114_1314 <- sum(customer_final2[customer_final2$total_amt > 0 &
+                                         transaction_date_1114_1314, ]$total_amt)
+print(paste("Amount earned from people aged b/w 25 and 35 b/w 1-1-14 & 1-3-14 is ", amt_spt_1114_1314))
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
