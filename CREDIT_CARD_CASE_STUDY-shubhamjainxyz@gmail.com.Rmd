@@ -1,0 +1,299 @@
+---
+title: "CREDIT_CARD_CASE_STUDY-shubhamjainxyz@gmail.com"
+output: html_document
+---
+
+### IMPORTING DATASETS
+
+```{r}
+setwd("C:/Users/shubh/Desktop/Data Science Using R/Class 7 Data Science Using R")
+
+customer_data <- read.csv("R Credit Card Case Study/Customer Acqusition.csv")
+customer_data$No <- NULL
+spend_data <- read.csv("R Credit Card Case Study/spend.csv")
+spend_data$Sl.No. <- NULL
+repay_data <- read.csv("R Credit Card Case Study/Repayment.csv")
+repay_data$SL.No. <- NULL
+```
+
+### IMPORTING PACKAGES
+
+```{r}
+require(dplyr)
+require(lubridate)
+require(ggplot2)
+require(plotly)
+```
+
+### RENAMING COLUMNS FOR BETTER UNDERSTANDING
+
+```{r}
+repay_data <- dplyr::rename(repay_data, "Amt_Repay" = "Amount") 
+spend_data <- dplyr::rename(spend_data, "Amt_Spend" = "Amount")
+```
+
+### CONVERSION TO PROPER DATE FORMATS
+
+```{r}
+repay_data$Month <- lubridate::dmy(repay_data$Month)
+spend_data$Month <- lubridate::dmy(spend_data$Month)
+```
+
+### Q1(a). REPLACE AGE WITH MEAN WHERE AGE IS LESS THAN 18
+
+```{r}
+customer_data[customer_data$Age < 18, "Age"]
+customer_data[customer_data$Age < 18, "Age"] <- mean(customer_data$Age, na.rm = TRUE)
+customer_data[customer_data$Age < 18, "Age"]
+```
+
+### Q1(b). IF AMT_SPEND > LIMIT REPLACE WITH 50% OF LIMIT
+
+```{r}
+customer_spend <- dplyr::left_join(x = customer_data, y = spend_data, by = c("Customer" = "Customer") ) 
+head(customer_spend, 5)
+
+head(customer_spend[customer_spend$Amt_Spend > customer_spend$Limit, "Amt_Spend"], 5)
+
+customer_spend[customer_spend$Amt_Spend > customer_spend$Limit, "Amt_Spend"] <-  
+0.5*customer_spend[customer_spend$Amt_Spend > customer_spend$Limit ,"Limit"]
+
+head(customer_spend[customer_spend$Amt_Spend > customer_spend$Limit, "Amt_Spend"], 5)
+```
+
+### Q1(c). IF AMT_REPAY > LIMIT REPLACE WITH LIMIT.
+
+```{r}
+customer_repay <- dplyr::left_join(x = customer_data, y = repay_data, by = c("Customer" = "Customer"))
+head(customer_repay, 5)
+
+head(customer_repay[customer_repay$Amt_Repay > customer_repay$Limit, "Amt_Repay"], 5)
+
+customer_repay[customer_repay$Amt_Repay > customer_repay$Limit, "Amt_Repay"] <-  
+customer_repay[customer_repay$Amt_Repay > customer_repay$Limit ,"Limit"]
+
+head(customer_repay[customer_repay$Amt_Repay > customer_repay$Limit, "Amt_Repay"], 5)
+```
+
+### Q2(a). NUMBER OF DISTINCT CUSTOMERS.
+
+```{r}
+distinct_customers <- count(dplyr::distinct(customer_data))
+print(paste("No. of distinct customers is", distinct_customers ))
+```
+
+### Q2(b). NUMBER OF DISTINCT CATEGORIES(SEGMENTS).
+
+```{r}
+count_categories <- count(dplyr::distinct(customer_data, Segment))
+print(paste("No. of distinct categories is", count_categories ))
+```
+
+### Q2(c). AVERAGE MONTHLY SPEND BY CUSTOMERS.
+
+```{r}
+avg_spend_mth <- customer_spend%>% dplyr::group_by(lubridate::year(Month))%>%dplyr::summarise(AVG_SPEND = sum(Amt_Spend)/12)
+avg_spend_mth <- sum(avg_spend_mth$AVG_SPEND)/3
+print(paste("Average Monthly Spend By All customers in a month is ", avg_spend_mth))
+```
+
+### Q2(d). AVERAGE MONTHLY REPAYMENT BY CUSTOMERS.
+
+```{r}
+avg_repay_mth <- customer_repay%>%dplyr::group_by(lubridate::year(Month))%>%dplyr::summarise(AVG_REPAY = sum(Amt_Repay)/12)
+avg_repay_mth <- sum(avg_repay_mth)/3
+print(paste("Average Monthly Repayment By All Customers in a month is ", avg_repay_mth))
+```
+
+### Q2(e). PROFIT FOR BANK FOR EACH MONTH.
+
+```{r}
+monthly_spend <- customer_spend %>% 
+                 dplyr::group_by(lubridate::year(Month), lubridate::month(Month)) %>%
+                 summarise(Amt_Spend = sum(Amt_Spend))
+
+monthly_spend <- dplyr::rename(monthly_spend, "Year" = "lubridate::year(Month)",
+                                              "Month" = "lubridate::month(Month)")
+
+monthly_repay <- customer_repay %>% 
+                 dplyr::group_by(lubridate::year(Month), lubridate::month(Month)) %>%
+                 summarise(Amt_Repay = sum(Amt_Repay))
+monthly_repay <- dplyr::rename(monthly_repay, "Year" = "lubridate::year(Month)",
+                                              "Month" = "lubridate::month(Month)")
+
+monthly_profit <- left_join(monthly_repay, monthly_spend, by = c("Year" = "Year", "Month" = "Month"))
+monthly_profit$Profit <- monthly_profit$Amt_Repay - monthly_profit$Amt_Spend
+monthly_profit$Profit <- ifelse(monthly_profit$Profit > 0, monthly_profit$Profit * 0.29, 0)
+monthly_profit
+```
+
+#### Q2(f). TOP 5 PRODUCT TYPES
+
+```{r}
+top_5_products <- customer_spend %>% dplyr::group_by(customer_spend$Type) %>% 
+                  summarise(Frequency = n()) %>% arrange(desc(Frequency)) %>% head(5)
+print(top_5_products)
+```
+
+### Q2(g). CITY HAVING MAXIMUM SPEND
+
+```{r}
+city_max_spend <- customer_spend %>% dplyr::group_by(customer_spend$City) %>%
+                  summarise(Total_Spend = sum(Amt_Spend)) %>% arrange(desc(Total_Spend)) %>%
+                  head(1)
+print(city_max_spend)
+```
+
+### Q2(h). EXPENDITURE ON BASIS OF AGE GROUP 
+
+```{r}
+customer_spend$Age_Group <- ifelse(customer_data$Age > 65, "Old(>65)", 
+                                  ifelse(customer_data$Age > 50, "Senior(51-65)",
+                                         ifelse(customer_data$Age > 30, "Middle Age(31-50)",
+                                                ifelse(customer_data$Age >= 18, "Young(18-30)"))))
+age_group_spend <- customer_spend %>% dplyr::group_by(Age_Group) %>% 
+                   summarise(Total_Spend = sum(Amt_Spend)) %>% arrange(desc(Total_Spend))
+print(age_group_spend)
+```
+
+### Q2.(i) TOP 10 CUSTOMERS IN TERMS OF REPAYMENT.
+
+```{r}
+top_10_repayments <- customer_repay %>% dplyr::group_by(Customer) %>% 
+                     summarise(Total_Repayment = sum(Amt_Repay)) %>% 
+                     arrange(desc(Total_Repayment)) %>% head(10)
+print(top_10_repayments)
+```
+
+### Q3. CITYWISE SPEND ON EACH PRODUCT ON YEARLY BASIS.
+
+```{r}
+city_analysis <-customer_spend %>% dplyr::group_by(City, Type, lubridate::year(Month)) %>% 
+                                   summarise(Spend = sum(Amt_Spend))
+city_analysis <- dplyr::rename(city_analysis, "Year" = "lubridate::year(Month)")
+city_analysis <- data.frame(city_analysis)
+print(head(data.frame(city_analysis), 5))
+
+city_analysis_plot <- ggplot2::ggplot(data = city_analysis) + 
+                               aes(x = City, y = Spend, fill = Type) + 
+                               geom_bar(stat = "identity") + facet_grid(Year~.)
+plot(city_analysis_plot)
+city_analysis_plot <- plotly::ggplotly(city_analysis_plot)
+city_analysis_plot
+```
+
+### Q4(a). MONTHLY COMPARISON OF TOTAL SPENDS CITYWISE.
+
+```{r}
+spend_citywise <- customer_spend %>% 
+                  dplyr::group_by(lubridate::year(Month),lubridate::month(Month), City) %>%
+                  summarise(Spend = sum(Amt_Spend))
+spend_citywise <- dplyr::rename(spend_citywise, "Year" = "lubridate::year(Month)",
+                                                "Month" = "lubridate::month(Month)")
+spend_citywise$Month <- lubridate::month(spend_citywise$Month, label = TRUE)
+spend_citywise_plot <- ggplot2::ggplot(data = spend_citywise) + 
+                                aes(x = City, y = Spend, fill = Month) + 
+                                geom_bar(stat = "identity") + facet_grid(Year~.)
+spend_citywise_plot <- plotly::ggplotly(spend_citywise_plot)
+spend_citywise_plot
+```
+
+### Q4(b). COMPARISON OF YEARLY SPEND ON AIR TICKET.
+
+```{r}
+spend_airticket <- customer_spend[customer_spend$Type == "AIR TICKET", ] %>%
+                                  dplyr::group_by(lubridate::year(Month)) %>% 
+                                  dplyr::summarise(Yearly_Spend = sum(Amt_Spend)) 
+spend_airticket <- dplyr::rename(spend_airticket, "Year" = "lubridate::year(Month)")
+spend_airticket_plot <- ggplot2::ggplot(data = spend_airticket) + 
+                        aes(x = Year, y = Yearly_Spend) + 
+                        geom_bar(stat = "identity")
+spend_airticket_plot <- plotly::ggplotly(spend_airticket_plot)
+spend_airticket_plot
+```
+
+### Q4(c). COMPARISON OF MONTHLY SPEND OF FOR EACH PRODUCT.
+
+```{r}
+product_spend <- customer_spend %>% 
+                 dplyr::group_by(lubridate::year(Month), lubridate::month(Month), Type ) %>%
+                 summarise(Spend = sum(Amt_Spend))
+product_spend <- dplyr::rename(product_spend, "Year" = "lubridate::year(Month)", 
+                                              "Month" = "lubridate::month(Month)")
+product_spend$Month <- lubridate::month(product_spend$Month, label = TRUE)
+product_spend$Year <- as.factor(product_spend$Year)
+product_spend_plot <- ggplot2::ggplot(data = product_spend) + 
+                               aes(x = Month, y = Spend, fill = Year) + 
+                               geom_bar(stat = "identity", position = "dodge") + 
+                               facet_grid(Type~.)
+product_spend_plot <- plotly::ggplotly(product_spend_plot)
+product_spend_plot
+```
+
+### Q5. USER DEFINED FUNCTION FOR ANALYSIS.
+
+```{r}
+# CORRECTING A MINOR MISTAKE
+customer_repay[customer_repay$Product == "Platimum", "Product"] <- "Platinum"
+
+top_10_cust_repay <- function(product, period){
+  
+  data <- customer_repay[customer_repay$Product == product, ]
+  
+  if(period == "year"|period == "Year"|period == "Yearly"|period == "yearly"|period == "YEAR"|period == "YEARLY")
+  {
+    data_summary <- data %>% dplyr::group_by(Customer, City, lubridate::year(Month)) %>%
+                                    summarise(Repayment = sum(Amt_Repay)) %>%
+                                    arrange(City, desc(Repayment))
+    
+    data_summary <- dplyr::rename(data_summary, "Year" = "lubridate::year(Month)")
+  } 
+  
+  else if(period == "month"|period == "monthly"|period == "MONTH"|period == "MONTHLY"|period == "Month"|period == "Monthly")
+  {
+    data_summary <- data %>% dplyr::group_by(Customer, City, lubridate::month(Month)) %>%
+                                    summarise(Repayment = sum(Amt_Repay)) %>%
+                                    arrange(City, desc(Repayment))
+    
+    data_summary <- dplyr::rename(data_summary, "Month" = "lubridate::month(Month)")
+  }
+  
+  View(data_summary)
+  
+  data_bangalore <- head(data_summary[data_summary$City == "BANGALORE", ], 10)
+  data_bombay <- head(data_summary[data_summary$City == "BOMBAY", ], 10)
+  data_calcutta <- head(data_summary[data_summary$City == "CALCUTTA", ], 10)
+  data_chennai <- head(data_summary[data_summary$City == "CHENNAI", ], 10)
+  data_cochin <- head(data_summary[data_summary$City == "COCHIN", ], 10)
+  data_delhi <- head(data_summary[data_summary$City == "DELHI", ], 10)
+  data_patna <- head(data_summary[data_summary$City == "PATNA", ], 10)
+  data_trivandrum <- head(data_summary[data_summary$City == "TRIVANDRUM", ], 10)
+  
+  final_data <- rbind(data_bangalore, data_bombay, data_calcutta, data_chennai, data_cochin, data_delhi, data_patna, data_trivandrum)
+  
+  if(period == "year")
+  {
+    final_data <- final_data %>% dplyr::group_by(Customer, City) %>% summarise %>% arrange(City)
+  }
+  
+  else if(period == "month")
+  {
+    final_data <- final_data %>% dplyr::group_by(Customer, City) %>% summarise %>% arrange(City)
+  }
+  
+  final_data
+}
+
+
+top_10_cust_repay("Gold", "month")
+top_10_cust_repay("Platinum", "year")
+```
+
+
+
+
+
+
+
+
+
